@@ -1,76 +1,86 @@
+-- CCPM-OS Desktop Core
+
 local desktop = {}
 
-function desktop.run()
--- test window (Program Manager placeholder)
-local progman = window.create("Program Manager", 3, 3, 30, 12)
-window.focus(progman)
+local windows = {}
 
--- menu setup (Windows 3.1 style)
-menu.set({
-    {
-        name = "File",
-        items = {
-            { name = "Open" },
-         { name = "Exit" }
-        }
-    },
-    {
-        name = "Help",
-         items = {
-             { name = "About" }
-         }
-    }
-})
+-- =========================
+-- WINDOW MANAGEMENT
+-- =========================
 
-while true do
-    desktop.draw()
+function desktop.add(win)
+    table.insert(windows, win)
+end
 
-    events.handle()
-    end
-    end
+function desktop.getWindows()
+    return windows
+end
 
-    -- =========================
-    -- DRAW EVERYTHING
-    -- =========================
-    function desktop.draw()
+function desktop.focusWindow(index)
+    local win = windows[index]
+    if not win then return end
+
+    table.remove(windows, index)
+    table.insert(windows, win)
+end
+
+-- =========================
+-- DRAW SYSTEM
+-- =========================
+
+function desktop.draw(windowLib)
     -- background
-    term.setBackgroundColor(colors.cyan)
-    term.clear()
-
-    -- menu bar
-    menu.draw()
+    if windowLib and windowLib.drawDesktopBackground then
+        windowLib.drawDesktopBackground()
+    else
+        term.setBackgroundColor(colors.black)
+        term.clear()
+    end
 
     -- windows
-    window.drawAll()
+    for i = 1, #windows do
+        local w = windows[i]
+        if w and w.draw then
+            w.draw()
+        end
     end
 
-    -- =========================
-    -- INPUT HANDLING
-    -- =========================
+    -- taskbar
+    if windowLib and windowLib.drawTaskbar then
+        windowLib.drawTaskbar(windows)
+    else
+        term.setCursorPos(1, 1)
+        term.setBackgroundColor(colors.gray)
+        term.write(" CCPM-OS ")
+    end
+end
 
-    events.onMouseDown = function(button, x, y)
-    -- first: menu click
-    menu.handleClick(x, y)
+-- =========================
+-- MAIN LOOP (THIS WAS MISSING)
+-- =========================
 
-    -- second: window focus
-    for _, win in ipairs(WINDOWS) do
-        if window.isInside(win, x, y) then
-            window.focus(win)
+function desktop.run(windowLib, events, menu, appmanager)
+    while true do
+        desktop.draw(windowLib)
+
+        local e = { os.pullEvent() }
+        local name = e[1]
+
+        -- event handler
+        if events and events.handle then
+            events.handle(e, windows)
+        end
+
+        -- menu handler
+        if menu and menu.handle then
+            menu.handle(e, windows)
+        end
+
+        -- optional exit key (Ctrl+Q style fallback)
+        if name == "key" and e[2] == keys.q then
             break
-            end
-            end
-            end
+        end
+    end
+end
 
-            events.onMouseDrag = function(button, x, y)
-            -- (dragging will be added later)
-            end
-
-            events.onMouseUp = function(button, x, y)
-            -- currently unused
-            end
-
-            events.onMouseScroll = function(dir, x, y)
-            -- unused for now
-            end
-
-            return desktop
+return desktop

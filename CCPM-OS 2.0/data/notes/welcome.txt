@@ -1,0 +1,7 @@
+CCPM-OS Notes System
+
+This folder is for personal notes.
+
+- Minesweeper is fun
+- Windows 3.1 vibes incoming
+- Don't break the OS :)

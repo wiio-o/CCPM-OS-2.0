@@ -1,73 +1,40 @@
--- CCPM-OS Desktop (Windows 3.1 style core loop)
+-- CCPM-OS Startup (stable loader)
 
-local desktop = {}
+term.setBackgroundColor(colors.black)
+term.setTextColor(colors.white)
+term.clear()
+term.setCursorPos(1,1)
 
-local windows = {}
-local focusedWindow = nil
-
--- =========================
--- BASIC WINDOW MANAGEMENT
--- =========================
-
-function desktop.addWindow(win)
-    table.insert(windows, win)
-    focusedWindow = win
-end
-
-function desktop.focusWindow(win)
-    focusedWindow = win
-end
-
-function desktop.drawAll(windowLib)
-    term.setBackgroundColor(colors.black)
-    term.clear()
-
-    -- draw desktop background
-    if windowLib and windowLib.drawDesktopBackground then
-        windowLib.drawDesktopBackground()
+-- Safe module loader
+local function load(path)
+    local ok, res = pcall(dofile, path)
+    if not ok then
+        error("Failed to load module:\n" .. path .. "\n\n" .. tostring(res))
     end
-
-    -- draw windows (back to front)
-    for i = 1, #windows do
-        local w = windows[i]
-        if w and w.draw then
-            w.draw()
-        end
-    end
-
-    -- draw taskbar last
-    if windowLib and windowLib.drawTaskbar then
-        windowLib.drawTaskbar(windows, focusedWindow)
-    end
+    return res
 end
 
 -- =========================
--- MAIN EVENT LOOP
+-- LOAD KERNEL MODULES
 -- =========================
+local window = load("kernel/window.lua")
+local desktop = load("kernel/desktop.lua")
+local events = load("kernel/events.lua")
+local menu = load("kernel/menu.lua")
+local appmanager = load("kernel/appmanager.lua")
 
-function desktop.run(windowLib, events, menu, appmanager)
-    while true do
-        desktop.drawAll(windowLib)
-
-        local event = {os.pullEvent()}
-
-        local name = event[1]
-
-        -- pass events to handler system
-        if events and events.handle then
-            events.handle(event, windows, focusedWindow)
-        end
-
-        -- optional menu handling
-        if menu and menu.handle then
-            menu.handle(event, windows, focusedWindow)
-        end
-
-        -- simple close shortcut example
-        if name == "key" and event[2] == keys.leftAlt then
-            break
-        end
-    end
+-- =========================
+-- INIT DESKTOP STATE
+-- =========================
+if desktop.init then
+    desktop.init(window)
 end
 
-return desktop
+if appmanager.init then
+    appmanager.init(window, desktop)
+end
+
+-- =========================
+-- START SYSTEM LOOP
+-- =========================
+desktop.run(window, events, menu, appmanager)
